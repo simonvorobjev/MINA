@@ -30,7 +30,8 @@ async function play() {
   const zkAppPrivkey = PrivateKey.random();
   const zkAppPubkey = zkAppPrivkey.toPublicKey();
   const zkAppInstance = new Deathroll(zkAppPubkey);
-
+  console.log('compile');
+  await Deathroll.compile(zkAppPubkey);
   // Create a new instance of the contract
   console.log('\n\n====== DEPLOYING ======\n\n');
   await deploy(zkAppInstance, zkAppPrivkey, player1);

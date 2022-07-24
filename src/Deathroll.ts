@@ -34,16 +34,10 @@ export class Deathroll extends SmartContract {
     //this.bet.set(new Field(10));
   }
 
-  @method rollOnce() {
+  @method rollOnce(randomNumber: Field) {
     const currentRoll = this.roll.get();
-    //const nextRoll = Math.floor(Math.random() * Number(currentRoll)) + 1;
-    const nextRoll = Math.floor(Number(currentRoll.toBigInt())) + 1;
-    //const nextRoll = Number(currentRoll.toBigInt());
-    //nextRoll = 1;
-    //let nextRoll = 1;
-    //this.roll.set(new Field(nextRoll));
-    //const turn = this.turn.get();
-    //this.turn.set(new Bool(false));
+    const nextRoll = currentRoll.mul(randomNumber).add(1);
+    this.roll.set(nextRoll);
   }
 }
 
@@ -57,19 +51,20 @@ export async function playDeathroll (
   const currentTurn = zkAppInstance.turn.get();
   while (true)
   {
+    const randomNumber = new Field(Math.floor(Math.random()));
     const txnTurn = await Mina.transaction(zkAppPrivkey, async () => {
-      zkAppInstance.rollOnce();
-      zkAppInstance.sign(zkAppPrivkey);
+      zkAppInstance.rollOnce(randomNumber);
     });
+    await txnTurn.prove();
     txnTurn.send();
     const currentRoll = Number(zkAppInstance.roll.get().toBigInt());
     console.log("current roll: ", currentRoll)
     if (currentRoll === 1)
     {
-      const txnPay = await Mina.transaction(zkAppPrivkey, async () => {
+      const txnPay = await Mina.transaction(player1, async () => {
         const bet = new UInt64(zkAppInstance.bet.get());
-        let p1 = Party.createSigned(zkAppPrivkey);
-        let p2 = Party.createSigned(zkAppPrivkey);
+        let p1 = Party.createSigned(player1);
+        let p2 = Party.createSigned(player1);
         if (currentTurn)
         {
               p1.balance.subInPlace(bet);
@@ -80,8 +75,8 @@ export async function playDeathroll (
               p1.balance.subInPlace(bet);
               p2.balance.addInPlace(bet);
         }
-        zkAppInstance.sign(zkAppPrivkey);
       });
+      await txnPay.prove();
       txnPay.send();
       break;
     }
