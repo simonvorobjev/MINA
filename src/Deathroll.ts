@@ -16,7 +16,7 @@ import {
 
 export class Deathroll extends SmartContract {
   @state(Field) roll = State<Field>();
-  @state(Field) turn = State<Bool>();
+  @state(Bool) turnPlayer1 = State<Bool>();
   @state(Field) bet = State<Field>();
 
   deploy(args: DeployArgs) {
@@ -30,14 +30,18 @@ export class Deathroll extends SmartContract {
 
   @method init() {
     this.roll.set(new Field(1000));
-    //this.turn.set(new Bool(false));
-    //this.bet.set(new Field(10));
+    this.turnPlayer1.set(new Bool(false));
+    this.bet.set(new Field(10));
   }
 
   @method rollOnce(randomNumber: Field) {
     const currentRoll = this.roll.get();
-    const nextRoll = currentRoll.mul(randomNumber).add(1);
+    const nextRoll = randomNumber;
     this.roll.set(nextRoll);
+    if (currentRoll !== Field(1))
+    {
+      this.turnPlayer1.set(this.turnPlayer1.get().not());
+    }
   }
 }
 
@@ -48,24 +52,28 @@ export async function playDeathroll (
   player2: PrivateKey,
 )
 {
-  const currentTurn = zkAppInstance.turn.get();
   while (true)
   {
-    const randomNumber = new Field(Math.floor(Math.random()));
+    const randomNumber = (Math.floor(Math.random() * 1000)) % Number(zkAppInstance.roll.get().toBigInt()) + 1;
+    console.log("randomNumber: ", randomNumber);
+    const randomField = new Field(randomNumber);
     const txnTurn = await Mina.transaction(zkAppPrivkey, async () => {
-      zkAppInstance.rollOnce(randomNumber);
+      zkAppInstance.rollOnce(randomField);
     });
+    zkAppInstance.roll.get()
     await txnTurn.prove();
     txnTurn.send();
     const currentRoll = Number(zkAppInstance.roll.get().toBigInt());
-    console.log("current roll: ", currentRoll)
+    console.log("current roll: ", currentRoll);
     if (currentRoll === 1)
     {
+      const turnPlayer1 = zkAppInstance.turnPlayer1.get();
+      console.log('Player ', turnPlayer1 ? '1 win' : '2 win');
       const txnPay = await Mina.transaction(player1, async () => {
         const bet = new UInt64(zkAppInstance.bet.get());
         let p1 = Party.createSigned(player1);
-        let p2 = Party.createSigned(player1);
-        if (currentTurn)
+        let p2 = Party.createSigned(player2);
+        if (turnPlayer1)
         {
               p1.balance.subInPlace(bet);
               p2.balance.addInPlace(bet);
@@ -76,11 +84,11 @@ export async function playDeathroll (
               p2.balance.addInPlace(bet);
         }
       });
-      await txnPay.prove();
       txnPay.send();
       break;
     }
   }
+
   const p1 = await Mina.getAccount(player1.toPublicKey());
   console.log('Player 1 balance', p1.balance.toString());
 

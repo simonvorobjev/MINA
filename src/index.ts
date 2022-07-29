@@ -1,3 +1,3 @@
-import { Deathroll } from './Deathroll.js';
+import { Deathroll, playDeathroll } from './Deathroll.js';
 
-export { Deathroll };
+export { Deathroll, playDeathroll };

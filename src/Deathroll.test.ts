@@ -54,23 +54,23 @@ describe('Deathroll', () => {
     setTimeout(shutdown, 0);
   });
 
-  it('generates and deploys the `Add` smart contract', async () => {
+  it('generates and deploys the smart contract', async () => {
     const zkAppInstance = new Deathroll(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
     const roll = zkAppInstance.roll.get();
-    expect(roll).toEqual(Field.one);
+    expect(roll).toEqual(1000);
   });
 
-  it('correctly updates the num state on the `Add` smart contract', async () => {
+  it('correctly updates the roll state on the smart contract', async () => {
     const zkAppInstance = new Deathroll(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
     const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.Roll();
+      zkAppInstance.rollOnce(Field(1000));
       zkAppInstance.sign(zkAppPrivateKey);
     });
     await txn.send().wait();
 
-    const updatedNum = zkAppInstance.roll.get();
-    expect(updatedNum).toEqual(Field(3));
+    const updatedRoll = Number(zkAppInstance.roll.get().toBigInt());
+    expect(updatedRoll).toBeLessThan(Number(Field(1000).toBigInt()));
   });
 });
